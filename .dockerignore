@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+**/.venv
+backend/media
+bot/.env
+.env
+.idea
+.vscode
+.DS_Store
+*.log
+pgdata

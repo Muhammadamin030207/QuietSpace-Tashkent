@@ -1,0 +1,112 @@
+name: quietspace
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-quietspace}
+      POSTGRES_USER: ${POSTGRES_USER:-quietspace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-quietspace_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-quietspace} -d ${POSTGRES_DB:-quietspace}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    ports:
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-worker:
+    build: ./backend
+    command: celery -A config worker -l info
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    depends_on:
+      backend:
+        condition: service_started
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  bot:
+    build: ./bot
+    command: python main.py --polling
+    env_file: .env
+    environment:
+      BACKEND_BASE_URL: http://backend:8000
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./bot:/app
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  miniapp:
+    build:
+      context: .
+      dockerfile: miniapp/Dockerfile
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ./miniapp:/app
+      - miniapp_node_modules:/app/node_modules
+      - ./packages:/packages
+    ports:
+      - "5175:5173"
+    depends_on:
+      - backend
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ./web:/app
+      - web_node_modules:/app/node_modules
+      - ./packages:/packages
+    ports:
+      - "5176:5174"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  media_data:
+  miniapp_node_modules:
+  web_node_modules:

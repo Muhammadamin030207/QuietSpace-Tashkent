@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/components/BottomNav.tsx","./src/components/PlaceCard.tsx","./src/lib/api.ts","./src/lib/storage.ts","./src/lib/tg.ts","./src/pages/ChatPage.tsx","./src/pages/FavoritesPage.tsx","./src/pages/MapPage.tsx","./src/pages/PlaceDetailPage.tsx","./src/pages/ProfilePage.tsx"],"version":"5.9.3"}
